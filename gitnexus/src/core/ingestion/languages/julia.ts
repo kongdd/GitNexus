@@ -30,6 +30,30 @@ import { juliaVariableConfig } from '../variable-extractors/configs/julia.js';
 import { createCallExtractor } from '../call-extractors/generic.js';
 import { juliaCallConfig } from '../call-extractors/configs/julia.js';
 import { createHeritageExtractor } from '../heritage-extractors/generic.js';
+import type { SyntaxNode } from '../utils/ast-helpers.js';
+
+const JULIA_CALL_RESULT = { kind: 'call' } as const;
+const JULIA_SKIP_RESULT = { kind: 'skip' } as const;
+
+function routeJuliaCall(calledName: string, callNode: SyntaxNode) {
+  // Skip signature-shape calls (e.g., `function run()` parsed as call_expression in signature).
+  if (callNode.parent?.type === 'signature') return JULIA_SKIP_RESULT;
+
+  if (calledName === 'include') {
+    const args =
+      callNode.childForFieldName('arguments') ??
+      callNode.namedChildren.find((n) => n.type === 'argument_list');
+    const literal = args?.namedChildren.find((n) => n.type === 'string_literal');
+    const content = literal?.namedChildren.find((n) => n.type === 'content');
+    const importPath = content?.text?.trim();
+    if (!importPath || importPath.length > 1024 || /[\x00-\x1f]/.test(importPath)) {
+      return JULIA_SKIP_RESULT;
+    }
+    return { kind: 'import', importPath, isRelative: true } as const;
+  }
+
+  return JULIA_CALL_RESULT;
+}
 
 const BUILT_INS: ReadonlySet<string> = new Set([
   'print',
@@ -97,6 +121,7 @@ export const juliaProvider = defineLanguage({
   typeConfig: juliaTypeConfig,
   exportChecker: juliaExportChecker,
   importResolver: createImportResolver(juliaImportConfig),
+  callRouter: routeJuliaCall,
   importSemantics: 'wildcard-leaf',
   callExtractor: createCallExtractor(juliaCallConfig),
   fieldExtractor: createFieldExtractor(juliaFieldConfig),

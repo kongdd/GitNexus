@@ -1512,59 +1512,81 @@ export const DART_QUERIES = `
       (type_identifier) @heritage.trait))) @heritage
 `;
 
-// Julia queries - works with tree-sitter-julia
+// Julia queries — verified against tree-sitter-julia grammar.
+//
+// Key structural facts (no named fields for struct/abstract type children):
+//   struct Foo <: Bar     → (struct_definition (type_head (binary_expression (identifier "Foo") ...)))
+//   struct Simple         → (struct_definition (type_head (identifier "Simple")))
+//   abstract type A <: B  → (abstract_definition (type_head (binary_expression ...)))
+//   module M              → (module_definition name: (identifier "M"))  ← has named field
+//   function f(x)         → (function_definition (signature (call_expression . (identifier "f") ...)))
+//   f(x) = expr           → (assignment . (call_expression . (identifier "f") ...) ...)
+//   macro @m(x)           → (macro_definition (signature (call_expression . (identifier "m") ...)))
 export const JULIA_QUERIES = `
 ; ── Structs (class-like types) ───────────────────────────────────────────────
+; Simple struct (no supertype): (type_head (identifier))
 (struct_definition
-  name: (identifier) @name) @definition.class
+  (type_head (identifier) @name)) @definition.class
+
+; Struct with supertype: (type_head (binary_expression . identifier <: identifier))
+(struct_definition
+  (type_head (binary_expression . (identifier) @name))) @definition.class
 
 ; ── Abstract types ────────────────────────────────────────────────────────────
 (abstract_definition
-  name: (identifier) @name) @definition.class
+  (type_head (identifier) @name)) @definition.class
+
+(abstract_definition
+  (type_head (binary_expression . (identifier) @name))) @definition.class
 
 ; ── Modules ───────────────────────────────────────────────────────────────────
 (module_definition
   name: (identifier) @name) @definition.module
 
 ; ── Function definitions ──────────────────────────────────────────────────────
+; Full form: function f(args...) ... end
 (function_definition
-  name: (identifier) @name) @definition.function
+  (signature (call_expression . (identifier) @name))) @definition.function
 
-; ── Short-form function definitions: f(x) = expr ─────────────────────────────
-(short_function_definition
-  name: (identifier) @name) @definition.function
+; Short form: f(args...) = expr
+; The leading . anchors call_expression as the first child (LHS), preventing
+; false matches on the RHS call expression in the assignment.
+(assignment .
+  (call_expression . (identifier) @name)) @definition.function
 
 ; ── Macro definitions ─────────────────────────────────────────────────────────
 (macro_definition
-  name: (identifier) @name) @definition.function
+  (signature (call_expression . (identifier) @name))) @definition.function
 
 ; ── Import statements ─────────────────────────────────────────────────────────
-(import_statement) @import
+(import_statement (identifier) @import.source) @import
 
-(using_statement) @import
+(using_statement (identifier) @import.source) @import
 
 ; ── Call expressions ──────────────────────────────────────────────────────────
-(call_expression
-  (identifier) @call.name) @call
+; Free calls: f(args...)
+(call_expression . (identifier) @call.name) @call
 
+; Member calls: obj.method(args...) — (field_expression value: receiver (identifier method))
 (call_expression
-  (field_expression
-    (identifier) @call.name)) @call
+  (field_expression value: (_) (identifier) @call.name)) @call
 
-; ── Heritage: struct Foo <: Bar ───────────────────────────────────────────────
+; ── Heritage: struct/abstract Foo <: Bar ──────────────────────────────────────
 (struct_definition
-  name: (identifier) @heritage.class
-  supertype: (type_clause
-    (identifier) @heritage.extends)) @heritage
+  (type_head
+    (binary_expression
+      (identifier) @heritage.class
+      (identifier) @heritage.extends))) @heritage
 
 (abstract_definition
-  name: (identifier) @heritage.class
-  supertype: (type_clause
-    (identifier) @heritage.extends)) @heritage
+  (type_head
+    (binary_expression
+      (identifier) @heritage.class
+      (identifier) @heritage.extends))) @heritage
 
-; ── Variable assignments at module scope ──────────────────────────────────────
-(assignment
-  left: (identifier) @name) @definition.variable
+; ── Variable assignments ──────────────────────────────────────────────────────
+; Simple assignment: x = expr (LHS is a plain identifier, not a call)
+(assignment . (identifier) @name) @definition.variable
 `;
 
 import { SupportedLanguages } from 'gitnexus-shared';

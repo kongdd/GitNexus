@@ -25,14 +25,31 @@ const DECLARATION_NODE_TYPES: ReadonlySet<string> = new Set([
   'assignment',
 ]);
 
+function getJuliaParameterList(node: SyntaxNode): SyntaxNode | undefined {
+  const direct = node.childForFieldName('parameters');
+  if (direct) return direct;
+
+  const signature =
+    node.childForFieldName('signature') ?? node.namedChildren.find((n) => n.type === 'signature');
+  if (!signature) return undefined;
+  const headerCall = signature.namedChildren.find((n) => n.type === 'call_expression');
+  if (!headerCall) return undefined;
+  const args = headerCall.childForFieldName('arguments');
+  if (args) return args;
+  return headerCall.namedChildren.find((n) => n.type === 'argument_list');
+}
+
 /**
  * Extract type annotations from function parameter lists into env.
  * Julia: `function foo(x::Int, y::String)` → env.set("x", "Int")
  */
-const extractDeclaration: TypeBindingExtractor = (node: SyntaxNode, env: Map<string, string>): void => {
+const extractDeclaration: TypeBindingExtractor = (
+  node: SyntaxNode,
+  env: Map<string, string>,
+): void => {
   if (node.type !== 'function_definition' && node.type !== 'short_function_definition') return;
 
-  const paramList = node.childForFieldName('parameters');
+  const paramList = getJuliaParameterList(node);
   if (!paramList) return;
 
   for (let i = 0; i < paramList.namedChildCount; i++) {
@@ -51,7 +68,10 @@ const extractDeclaration: TypeBindingExtractor = (node: SyntaxNode, env: Map<str
   }
 };
 
-const extractParameter: ParameterExtractor = (_node: SyntaxNode, _env: Map<string, string>): void => {
+const extractParameter: ParameterExtractor = (
+  _node: SyntaxNode,
+  _env: Map<string, string>,
+): void => {
   // Parameter types are handled by extractDeclaration above
 };
 
