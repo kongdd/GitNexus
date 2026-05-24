@@ -161,6 +161,11 @@ const SOURCES: Record<string, GrammarSource> = {
       'Kotlin parsing disabled: `tree-sitter-kotlin` is an optionalDependency ' +
       'and is not installed (or its native binding failed to build).',
   },
+  [SupportedLanguages.Julia]: {
+    load: () => _require('tree-sitter-julia'),
+    unavailableNote:
+      'Julia parsing requires `tree-sitter-julia`. Check that the package and its native binding installed cleanly (`npm ci`).',
+  },
 };
 
 type LoadResult =

@@ -1512,6 +1512,61 @@ export const DART_QUERIES = `
       (type_identifier) @heritage.trait))) @heritage
 `;
 
+// Julia queries - works with tree-sitter-julia
+export const JULIA_QUERIES = `
+; ── Structs (class-like types) ───────────────────────────────────────────────
+(struct_definition
+  name: (identifier) @name) @definition.class
+
+; ── Abstract types ────────────────────────────────────────────────────────────
+(abstract_definition
+  name: (identifier) @name) @definition.class
+
+; ── Modules ───────────────────────────────────────────────────────────────────
+(module_definition
+  name: (identifier) @name) @definition.module
+
+; ── Function definitions ──────────────────────────────────────────────────────
+(function_definition
+  name: (identifier) @name) @definition.function
+
+; ── Short-form function definitions: f(x) = expr ─────────────────────────────
+(short_function_definition
+  name: (identifier) @name) @definition.function
+
+; ── Macro definitions ─────────────────────────────────────────────────────────
+(macro_definition
+  name: (identifier) @name) @definition.function
+
+; ── Import statements ─────────────────────────────────────────────────────────
+(import_statement) @import
+
+(using_statement) @import
+
+; ── Call expressions ──────────────────────────────────────────────────────────
+(call_expression
+  (identifier) @call.name) @call
+
+(call_expression
+  (field_expression
+    (identifier) @call.name)) @call
+
+; ── Heritage: struct Foo <: Bar ───────────────────────────────────────────────
+(struct_definition
+  name: (identifier) @heritage.class
+  supertype: (type_clause
+    (identifier) @heritage.extends)) @heritage
+
+(abstract_definition
+  name: (identifier) @heritage.class
+  supertype: (type_clause
+    (identifier) @heritage.extends)) @heritage
+
+; ── Variable assignments at module scope ──────────────────────────────────────
+(assignment
+  left: (identifier) @name) @definition.variable
+`;
+
 import { SupportedLanguages } from 'gitnexus-shared';
 
 export const LANGUAGE_QUERIES: Record<SupportedLanguages, string> = {
@@ -1531,4 +1586,5 @@ export const LANGUAGE_QUERIES: Record<SupportedLanguages, string> = {
   [SupportedLanguages.Dart]: DART_QUERIES,
   [SupportedLanguages.Vue]: TYPESCRIPT_QUERIES, // Vue <script> blocks are parsed as TypeScript
   [SupportedLanguages.Cobol]: '', // Standalone regex processor — no tree-sitter queries
+  [SupportedLanguages.Julia]: JULIA_QUERIES,
 };
