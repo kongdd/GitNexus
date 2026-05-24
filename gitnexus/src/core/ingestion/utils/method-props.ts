@@ -151,9 +151,7 @@ export function buildMethodProps(info: MethodInfo): Record<string, unknown> {
   }
   return {
     parameterCount: hasVariadic ? undefined : info.parameters.length,
-    ...(!hasVariadic && optionalCount > 0
-      ? { requiredParameterCount: info.parameters.length - optionalCount }
-      : {}),
+    ...(!hasVariadic ? { requiredParameterCount: info.parameters.length - optionalCount } : {}),
     ...(types.length > 0 ? { parameterTypes: types } : {}),
     returnType: info.returnType ?? undefined,
     visibility: info.visibility,

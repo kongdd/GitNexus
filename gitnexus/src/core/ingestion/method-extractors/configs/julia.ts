@@ -52,7 +52,8 @@ function extractJuliaParameters(node: SyntaxNode): ParameterInfo[] {
         });
         break;
       }
-      case 'typed_parameter': {
+      case 'typed_parameter':
+      case 'typed_expression': {
         const nameNode = param.childForFieldName('name') ?? param.firstNamedChild;
         const typeNode = param.childForFieldName('type') ?? param.namedChild(1);
         if (nameNode) {
@@ -61,6 +62,33 @@ function extractJuliaParameters(node: SyntaxNode): ParameterInfo[] {
             type: typeNode?.text?.trim() ?? null,
             rawType: typeNode?.text?.trim() ?? null,
             isOptional: false,
+            isVariadic: false,
+          });
+        }
+        break;
+      }
+      case 'named_argument': {
+        // Default positional (x::Int=1) or keyword (; kw::String="hello") parameter.
+        // First named child is typed_expression (typed) or identifier (untyped).
+        const first = param.firstNamedChild;
+        if (first?.type === 'typed_expression') {
+          const nameNode = first.firstNamedChild;
+          const typeNode = first.namedChild(1);
+          if (nameNode) {
+            params.push({
+              name: nameNode.text,
+              type: typeNode?.text?.trim() ?? null,
+              rawType: typeNode?.text?.trim() ?? null,
+              isOptional: true,
+              isVariadic: false,
+            });
+          }
+        } else if (first?.type === 'identifier') {
+          params.push({
+            name: first.text,
+            type: null,
+            rawType: null,
+            isOptional: true,
             isVariadic: false,
           });
         }

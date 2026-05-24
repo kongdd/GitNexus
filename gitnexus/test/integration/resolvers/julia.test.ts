@@ -173,3 +173,43 @@ describe('Julia export visibility in top-level scripts', () => {
     expect(api?.properties.isExported).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Parameters.jl @with_kw — struct field extraction + keyword/default params
+// ---------------------------------------------------------------------------
+
+describe('Julia @with_kw struct and keyword parameter extraction', () => {
+  let result: PipelineResult;
+
+  beforeAll(async () => {
+    result = await runPipelineFromRepo(path.join(FIXTURES, 'julia-with-kw'), () => {});
+  }, 60000);
+
+  it('detects @with_kw struct as a Class node', () => {
+    const classes = getNodesByLabel(result, 'Class');
+    expect(classes).toContain('ModelConfig');
+  });
+
+  it('detects plain struct as a Class node', () => {
+    const classes = getNodesByLabel(result, 'Class');
+    expect(classes).toContain('Point');
+  });
+
+  it('extracts keyword/default parameters for train(cfg; epochs, lr)', () => {
+    const fns = getNodesByLabelFull(result, 'Function');
+    const train = fns.find((n) => n.name === 'train');
+    expect(train).toBeDefined();
+    expect(train?.properties.parameterCount).toBe(3);
+    expect(train?.properties.requiredParameterCount).toBe(1);
+    expect(train?.properties.parameterTypes).toEqual(['ModelConfig', 'Int', 'Float64']);
+  });
+
+  it('extracts required-only parameters for distance(a, b)', () => {
+    const fns = getNodesByLabelFull(result, 'Function');
+    const dist = fns.find((n) => n.name === 'distance');
+    expect(dist).toBeDefined();
+    expect(dist?.properties.parameterCount).toBe(2);
+    expect(dist?.properties.requiredParameterCount).toBe(2);
+    expect(dist?.properties.parameterTypes).toEqual(['Point', 'Point']);
+  });
+});
