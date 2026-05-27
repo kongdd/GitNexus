@@ -113,7 +113,9 @@ const warnOnce = (logger: SidecarRecoveryLogger, key: string, message: string): 
 // — `git grep "LADYBUGDB-CONTRACT"` enumerates every version-coupled spot.
 export const isMissingShadowSidecarError = (err: unknown): boolean => {
   const msg = err instanceof Error ? err.message : String(err);
-  return /Cannot open file .*\.shadow: No such file or directory/i.test(msg);
+  return /Cannot open file(?:\. path:)? .*\.shadow(?:: No such file or directory| - Error 2: The system cannot find the file specified\.?)/i.test(
+    msg,
+  );
 };
 
 // LADYBUGDB-CONTRACT: matches @ladybugdb/core ^0.16.1 native error text.

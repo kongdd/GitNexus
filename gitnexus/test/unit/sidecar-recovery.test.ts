@@ -7,6 +7,7 @@ import {
   _resetSidecarRecoveryWarningsForTest,
   finalizeLbugSidecarsAfterClose,
   inspectLbugSidecars,
+  isMissingShadowSidecarError,
   isPermissionRenameError,
   isReadOnlyShadowReplayError,
   listQuarantinedMissingShadowWals,
@@ -184,6 +185,24 @@ describe('LadybugDB sidecar recovery', () => {
   });
 
   describe('Centralized isReadOnlyShadowReplayError (PR #1747 review, F4 dedup)', () => {
+    it('matches LadybugDB missing-shadow errors on both Unix and Windows formats', () => {
+      const unixErr = new Error(
+        'IO exception: Cannot open file /tmp/lbug.shadow: No such file or directory',
+      );
+      const winErr = new Error(
+        'IO exception: Cannot open file. path: D:\\repo\\.gitnexus\\lbug.shadow - Error 2: The system cannot find the file specified.',
+      );
+      expect(isMissingShadowSidecarError(unixErr)).toBe(true);
+      expect(isMissingShadowSidecarError(winErr)).toBe(true);
+    });
+
+    it('false-positive guard: missing-shadow matcher rejects unrelated errors', () => {
+      expect(isMissingShadowSidecarError(new Error('file not found'))).toBe(false);
+      expect(
+        isMissingShadowSidecarError(new Error('Cannot open file /tmp/lbug.wal: lock conflict')),
+      ).toBe(false);
+    });
+
     it('matches LadybugDB read-only shadow-replay error', () => {
       const err = new Error(
         "Runtime exception: Couldn't replay shadow pages under read-only mode. Please re-open the database with read-write mode to replay shadow pages.",

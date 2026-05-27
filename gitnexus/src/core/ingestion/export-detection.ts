@@ -246,3 +246,31 @@ export const rubyExportChecker: ExportChecker = (_node, _name) => true;
 
 /** Dart: public if no leading underscore (convention, same as Python). */
 export const dartExportChecker: ExportChecker = (_node, name) => !name.startsWith('_');
+
+/**
+ * Julia: walk ancestors looking for an export_statement.
+ * Julia uses explicit `export` keyword to mark public symbols.
+ * Symbols not in an export list are still accessible via qualified names
+ * but are not exported — we treat un-exported symbols as non-public.
+ * Fallback: if no export statement is found in the module, treat all
+ * non-underscore names as public (common for scripts without explicit exports).
+ */
+export const juliaExportChecker: ExportChecker = (node, name) => {
+  if (name.startsWith('_')) return false;
+  let current: SyntaxNode | null = node;
+  while (current) {
+    if (current.type === 'module_definition') {
+      // Check siblings inside module body for export_statement listing this name
+      const body = current.childForFieldName('body') ?? current;
+      for (let i = 0; i < body.childCount; i++) {
+        const child = body.child(i);
+        if (child?.type === 'export_statement' && child.text?.includes(name)) return true;
+      }
+      // Module found but name not in any export — treat as internal
+      return false;
+    }
+    current = current.parent;
+  }
+  // Top-level (script) — treat all non-underscore names as public
+  return true;
+};

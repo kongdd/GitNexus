@@ -56,6 +56,18 @@ export interface FieldExtractionConfig {
   /** Extract fields from primary constructor parameters on the owner node itself
    *  (e.g. C# record positional parameters, C# 12 class primary constructors). */
   extractPrimaryFields?: (ownerNode: SyntaxNode, context: FieldExtractorContext) => FieldInfo[];
+  /**
+   * Custom owner name extractor for grammars where `childForFieldName('name')` does not work
+   * (e.g. Julia, where struct_definition has no named grammar fields).
+   * When provided, used instead of `node.childForFieldName('name')?.text`.
+   */
+  extractOwnerName?: (node: SyntaxNode) => string | undefined;
+  /**
+   * When true, use the owner node itself as the field body (fields are direct children).
+   * For grammars like Julia where struct fields live directly under the type-declaration node
+   * rather than inside a separate body wrapper node.
+   */
+  useOwnerAsBody?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,9 +97,8 @@ export function createFieldExtractor(config: FieldExtractionConfig): FieldExtrac
       if (!this.isTypeDeclaration(node)) return null;
 
       const nameNode = node.childForFieldName('name');
-      if (!nameNode) return null;
-
-      const ownerFqn = nameNode.text;
+      const ownerFqn = config.extractOwnerName?.(node) ?? nameNode?.text;
+      if (!ownerFqn) return null;
       const fields: FieldInfo[] = [];
 
       // Find body container(s)
@@ -110,6 +121,7 @@ export function createFieldExtractor(config: FieldExtractionConfig): FieldExtrac
     // ------------------------------------------------------------------
 
     private findBodies(node: SyntaxNode): SyntaxNode[] {
+      if (config.useOwnerAsBody) return [node];
       const result: SyntaxNode[] = [];
       // Try named 'body' field first
       const bodyField = node.childForFieldName('body');
