@@ -213,3 +213,33 @@ describe('Julia @with_kw struct and keyword parameter extraction', () => {
     expect(dist?.properties.parameterTypes).toEqual(['Point', 'Point']);
   });
 });
+
+describe('Julia sibling package imports (BEPS/SoilDiffEqs -> ModelParams)', () => {
+  let result: PipelineResult;
+
+  beforeAll(async () => {
+    result = await runPipelineFromRepo(path.join(FIXTURES, 'julia-package-import'), () => {});
+  }, 60000);
+
+  it('emits CALLS edge: run_beps -> model_factor via using ModelParams', () => {
+    const calls = getRelationships(result, 'CALLS');
+    const edge = calls.find(
+      (c) =>
+        c.source === 'run_beps' &&
+        c.target === 'model_factor' &&
+        c.targetFilePath.endsWith('ModelParams.jl/src/params.jl'),
+    );
+    expect(edge).toBeDefined();
+  });
+
+  it('emits CALLS edge: run_soil -> soil_param via using ModelParams', () => {
+    const calls = getRelationships(result, 'CALLS');
+    const edge = calls.find(
+      (c) =>
+        c.source === 'run_soil' &&
+        c.target === 'soil_param' &&
+        c.targetFilePath.endsWith('ModelParams.jl/src/params.jl'),
+    );
+    expect(edge).toBeDefined();
+  });
+});
